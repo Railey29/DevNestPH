@@ -1,6 +1,7 @@
 {
   "name": "devnest-ph",
   "version": "0.0.1",
+  "packageManager": "npm@11.6.2",
   "private": true,
   "scripts": {
     "build": "turbo build",
