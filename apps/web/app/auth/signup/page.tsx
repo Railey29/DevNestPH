@@ -1,6 +1,8 @@
 "use client"
 
 import { SignupForm } from "@/components/signup-form"
+import { FormSkeleton } from "@/components/skeletons/form-skeleton"
+import { WithDelay } from "@/components/with-delay"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { LayoutBottomIcon } from "@hugeicons/core-free-icons"
 import Card from "@/components/right-icon"
@@ -30,13 +32,18 @@ export default function SignupPage() {
           </div>
           <div className="flex flex-1 items-center justify-center">
             <div className="w-full max-w-xs">
-              <SignupForm
-                loading={loading}
-                sendingCode={sendingCode}
-                registered={registered}
-                onGetCode={handleGetCode}
-                onRegister={handleSubmit}
-              />
+              <WithDelay
+                fallback={<FormSkeleton hasVerification />}
+                delay={1000}
+              >
+                <SignupForm
+                  loading={loading}
+                  sendingCode={sendingCode}
+                  registered={registered}
+                  onGetCode={handleGetCode}
+                  onRegister={handleSubmit}
+                />
+              </WithDelay>
             </div>
           </div>
         </div>
@@ -93,10 +100,8 @@ export default function SignupPage() {
               --float-color: rgba(255, 0, 0, 0.15);
             }
           `}</style>
-
           <div className="tech-bg" />
           <div className="tech-glow" />
-
           <span
             className="floating-text"
             style={{
@@ -197,7 +202,6 @@ export default function SignupPage() {
           >
             tailwind.config.ts
           </span>
-
           <Card />
         </div>
       </div>

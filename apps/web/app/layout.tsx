@@ -1,17 +1,14 @@
 import { Geist_Mono, Figtree } from "next/font/google"
 import type { Metadata } from "next"
+import { SessionProvider } from "next-auth/react"
 
 import "@workspace/ui/globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { cn } from "@workspace/ui/lib/utils"
 import { Toaster } from "sileo"
+import { cn } from "@workspace/ui/lib/utils"
 
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" })
-
-const fontMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-})
+const fontMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" })
 
 export const metadata: Metadata = {
   title: {
@@ -38,10 +35,12 @@ export default function RootLayout({
       )}
     >
       <body>
-        <ThemeProvider>
-          <Toaster position="top-center" />
-          {children}
-        </ThemeProvider>
+        <SessionProvider>
+          <ThemeProvider>
+            <Toaster position="top-center" />
+            {children}
+          </ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
   )

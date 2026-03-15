@@ -1,12 +1,17 @@
 "use client"
 
 import { LoginForm } from "@/components/login-form"
+import { FormSkeleton } from "@/components/skeletons/form-skeleton"
+import { WithDelay } from "@/components/with-delay"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { LayoutBottomIcon } from "@hugeicons/core-free-icons"
 import Card from "@/components/right-icon"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { useLogin } from "@/hooks/use-login"
 
 export default function LoginPage() {
+  const { loading, handleSubmit } = useLogin()
+
   return (
     <>
       <ThemeToggle />
@@ -26,7 +31,9 @@ export default function LoginPage() {
           </div>
           <div className="flex flex-1 items-center justify-center">
             <div className="w-full max-w-xs">
-              <LoginForm />
+              <WithDelay fallback={<FormSkeleton />} delay={1000}>
+                <LoginForm loading={loading} onSubmit={handleSubmit} />
+              </WithDelay>
             </div>
           </div>
         </div>
@@ -72,29 +79,19 @@ export default function LoginPage() {
               90% { opacity: 1; }
               100% { transform: translateY(-100vh); opacity: 0; }
             }
-
-            /* Light mode */
             :root {
               --grid-color: rgba(255, 0, 0, 0.12);
               --glow-color: rgba(255, 0, 0, 0.15);
               --float-color: rgba(255, 0, 0, 0.25);
             }
-
-            /* Dark mode */
             .dark {
               --grid-color: rgba(255, 0, 0, 0.15);
               --glow-color: rgba(255, 0, 0, 0.2);
               --float-color: rgba(255, 0, 0, 0.15);
             }
           `}</style>
-
-          {/* Grid */}
           <div className="tech-bg" />
-
-          {/* Glow */}
           <div className="tech-glow" />
-
-          {/* Floating code texts */}
           <span
             className="floating-text"
             style={{
@@ -195,8 +192,6 @@ export default function LoginPage() {
           >
             tailwind.config.ts
           </span>
-
-          {/* Card */}
           <Card />
         </div>
       </div>
