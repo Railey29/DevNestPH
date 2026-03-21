@@ -182,7 +182,7 @@ export function SignupForm({
           <Button
             variant="outline"
             type="button"
-            onClick={() => signIn("github", { callbackUrl: "/auth/login" })}
+            onClick={() => signIn("github", { callbackUrl: "/feed" })}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
               <path

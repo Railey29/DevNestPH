@@ -42,7 +42,7 @@ export default function LoginPage() {
             .tech-bg {
               position: absolute;
               inset: 0;
-              background-image: 
+              background-image:
                 linear-gradient(var(--grid-color) 1px, transparent 1px),
                 linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
               background-size: 40px 40px;
