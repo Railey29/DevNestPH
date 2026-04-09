@@ -29,23 +29,23 @@ model User {
   followers     Follow[]  @relation("UserFollowers")
   following     Follow[]  @relation("UserFollowing")
   receivedNotifications Notification[] @relation("UserNotifications")
-  sentNotifications    Notification[] @relation("UserActions")
+  sentNotifications     Notification[] @relation("UserActions")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
 
 model Post {
-  id        String    @id @default(cuid())
-  content   String
-  imageUrl  String?
-  tags      String[]
-  authorId  String
-  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  likes     Like[]
-  comments  Comment[]
+  id            String         @id @default(cuid())
+  content       String
+  imageUrl      String?
+  tags          String[]
+  authorId      String
+  author        User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes         Like[]
+  comments      Comment[]
   notifications Notification[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model Like {
@@ -59,15 +59,15 @@ model Like {
 }
 
 model Comment {
-  id        String   @id @default(cuid())
-  content   String
-  authorId  String
-  postId    String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  notification Notification? @relation("CommentNotification") // Added opposite relation
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String        @id @default(cuid())
+  content      String
+  authorId     String
+  postId       String
+  author       User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post         Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  notification Notification? @relation("CommentNotification")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model Follow {
@@ -81,19 +81,19 @@ model Follow {
 }
 
 model Notification {
-  id        String         @id @default(cuid())
+  id        String           @id @default(cuid())
   userId    String
   actorId   String
   type      NotificationType
   postId    String?
-  commentId String?         @unique
-  read      Boolean        @default(false)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  commentId String?          @unique
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 
-  user   User   @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
-  actor  User   @relation("UserActions", fields: [actorId], references: [id], onDelete: Cascade)
-  post   Post?  @relation(fields: [postId], references: [id], onDelete: SetNull)
+  user    User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  actor   User     @relation("UserActions", fields: [actorId], references: [id], onDelete: Cascade)
+  post    Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
   comment Comment? @relation("CommentNotification", fields: [commentId], references: [id], onDelete: SetNull)
 
   @@index([userId])
@@ -108,6 +108,7 @@ enum NotificationType {
   LIKE_COMMENT
   COMMENT
   REPLY
+  MENTION  // ✅ Bagong type para sa @mentions
 }
 
 model Account {

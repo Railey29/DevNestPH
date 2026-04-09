@@ -1,12 +1,23 @@
 // lib/actions/post.ts
-'use server'
+"use server"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { NotificationType } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 
+function extractMentions(content: string): string[] {
+  const regex = /@(\w+)/g
+  const matches = [...content.matchAll(regex)]
+  return [...new Set(matches.map((m) => m[1] as string))]
+}
+
 // ============ CREATE POST ============
-export async function createPost(content: string, imageUrl?: string | null, tags: string[] = []) {
+export async function createPost(
+  content: string,
+  imageUrl?: string | null,
+  tags: string[] = []
+) {
   const session = await auth()
   if (!session?.user?.email) {
     throw new Error("Unauthorized")
@@ -14,7 +25,7 @@ export async function createPost(content: string, imageUrl?: string | null, tags
 
   const currentUser = await prisma.user.findUnique({
     where: { email: session.user.email },
-    select: { id: true }
+    select: { id: true, username: true },
   })
 
   if (!currentUser) {
@@ -40,6 +51,37 @@ export async function createPost(content: string, imageUrl?: string | null, tags
     },
   })
 
+  // ✅ MENTION notifications sa post content
+  const mentionedUsernames = extractMentions(content)
+
+  if (mentionedUsernames.length > 0) {
+    const mentionedUsers = await prisma.user.findMany({
+      where: {
+        username: { in: mentionedUsernames },
+        id: { not: currentUser.id },
+      },
+      select: { id: true },
+    })
+
+    await Promise.all(
+      mentionedUsers.map((user) =>
+        prisma.notification.create({
+          data: {
+            userId: user.id,
+            actorId: currentUser.id,
+            type: NotificationType.MENTION,
+            postId: post.id,
+            read: false,
+          },
+        })
+      )
+    )
+
+    console.log(
+      `✅ MENTION notifications sent to: ${mentionedUsernames.join(", ")}`
+    )
+  }
+
   revalidatePath("/feed")
   revalidatePath(`/profile/${currentUser.id}`)
 
@@ -55,14 +97,13 @@ export async function toggleLike(postId: string) {
 
   const currentUser = await prisma.user.findUnique({
     where: { email: session.user.email },
-    select: { id: true }
+    select: { id: true },
   })
 
   if (!currentUser) {
     throw new Error("User not found")
   }
 
-  // Check if already liked
   const existingLike = await prisma.like.findUnique({
     where: {
       userId_postId: {
@@ -73,7 +114,6 @@ export async function toggleLike(postId: string) {
   })
 
   if (existingLike) {
-    // UNLIKE
     await prisma.like.delete({
       where: {
         userId_postId: {
@@ -83,22 +123,20 @@ export async function toggleLike(postId: string) {
       },
     })
 
-    // Delete notification
     await prisma.notification.deleteMany({
       where: {
         actorId: currentUser.id,
         postId: postId,
-        type: 'LIKE_POST',
+        type: NotificationType.LIKE_POST,
       },
     })
 
     revalidatePath(`/post/${postId}`)
     return { liked: false }
   } else {
-    // LIKE
     const post = await prisma.post.findUnique({
       where: { id: postId },
-      select: { authorId: true }
+      select: { authorId: true },
     })
 
     if (!post) {
@@ -112,13 +150,12 @@ export async function toggleLike(postId: string) {
       },
     })
 
-    // CREATE NOTIFICATION (if not liking own post)
     if (post.authorId !== currentUser.id) {
       await prisma.notification.create({
         data: {
           userId: post.authorId,
           actorId: currentUser.id,
-          type: 'LIKE_POST',
+          type: NotificationType.LIKE_POST,
           postId: postId,
           read: false,
         },
@@ -131,8 +168,12 @@ export async function toggleLike(postId: string) {
   }
 }
 
-// ============ CREATE COMMENT (with reply support) ============
-export async function createComment(postId: string, content: string, parentCommentId?: string) {
+// ============ CREATE COMMENT ============
+export async function createComment(
+  postId: string,
+  content: string,
+  parentCommentId?: string
+) {
   const session = await auth()
   if (!session?.user?.email) {
     throw new Error("Unauthorized")
@@ -140,24 +181,22 @@ export async function createComment(postId: string, content: string, parentComme
 
   const currentUser = await prisma.user.findUnique({
     where: { email: session.user.email },
-    select: { id: true, name: true, username: true, image: true }
+    select: { id: true, name: true, username: true, image: true },
   })
 
   if (!currentUser) {
     throw new Error("User not found")
   }
 
-  // Get post author
   const post = await prisma.post.findUnique({
     where: { id: postId },
-    select: { authorId: true }
+    select: { authorId: true },
   })
 
   if (!post) {
     throw new Error("Post not found")
   }
 
-  // Create comment
   const comment = await prisma.comment.create({
     data: {
       content,
@@ -166,25 +205,28 @@ export async function createComment(postId: string, content: string, parentComme
     },
   })
 
-  // ✅ CREATE NOTIFICATION for post author (if not commenting on own post)
+  // ✅ COMMENT notification sa post author
   if (post.authorId !== currentUser.id) {
     await prisma.notification.create({
       data: {
         userId: post.authorId,
         actorId: currentUser.id,
-        type: 'COMMENT',
+        type: NotificationType.COMMENT,
         postId: postId,
+        commentId: comment.id,
         read: false,
       },
     })
-    console.log(`✅ Comment notification created for post author: ${post.authorId}`)
+    console.log(
+      `✅ Comment notification created for post author: ${post.authorId}`
+    )
   }
 
-  // ✅ CREATE NOTIFICATION for parent comment author (if replying to a comment)
+  // ✅ REPLY notification sa parent comment author
   if (parentCommentId) {
     const parentComment = await prisma.comment.findUnique({
       where: { id: parentCommentId },
-      select: { authorId: true, content: true }
+      select: { authorId: true },
     })
 
     if (parentComment && parentComment.authorId !== currentUser.id) {
@@ -192,41 +234,52 @@ export async function createComment(postId: string, content: string, parentComme
         data: {
           userId: parentComment.authorId,
           actorId: currentUser.id,
-          type: 'REPLY',
+          type: NotificationType.REPLY,
           postId: postId,
           commentId: parentCommentId,
           read: false,
         },
       })
-      console.log(`✅ Reply notification created for comment author: ${parentComment.authorId}`)
+      console.log(
+        `✅ Reply notification created for: ${parentComment.authorId}`
+      )
     }
   }
 
-  // Extract mentions from content (users tagged with @)
-  const mentionRegex = /@(\w+)/g
-  const mentions = content.match(mentionRegex)
+  // ✅ MENTION notifications sa mga na-mention sa comment
+  const mentionedUsernames = extractMentions(content)
 
-  if (mentions) {
-    for (const mention of mentions) {
-      const username = mention.slice(1) // Remove @ symbol
-      const mentionedUser = await prisma.user.findUnique({
-        where: { username },
-        select: { id: true }
-      })
+  if (mentionedUsernames.length > 0) {
+    const mentionedUsers = await prisma.user.findMany({
+      where: {
+        username: { in: mentionedUsernames },
+        id: { not: currentUser.id },
+      },
+      select: { id: true },
+    })
 
-      if (mentionedUser && mentionedUser.id !== currentUser.id) {
-        await prisma.notification.create({
+    // Iwasan ang duplicate — skip ang post author kung na-COMMENT notify na
+    const usersToNotify = mentionedUsers.filter(
+      (user) => user.id !== post.authorId
+    )
+
+    await Promise.all(
+      usersToNotify.map((user) =>
+        prisma.notification.create({
           data: {
-            userId: mentionedUser.id,
+            userId: user.id,
             actorId: currentUser.id,
-            type: 'COMMENT',
+            type: NotificationType.MENTION,
             postId: postId,
             read: false,
           },
         })
-        console.log(`✅ Mention notification created for user: ${mentionedUser.id}`)
-      }
-    }
+      )
+    )
+
+    console.log(
+      `✅ MENTION notifications sent to: ${mentionedUsernames.join(", ")}`
+    )
   }
 
   revalidatePath(`/post/${postId}`)
@@ -242,7 +295,7 @@ export async function deletePost(postId: string) {
 
   const currentUser = await prisma.user.findUnique({
     where: { email: session.user.email },
-    select: { id: true }
+    select: { id: true },
   })
 
   if (!currentUser) {
@@ -251,14 +304,13 @@ export async function deletePost(postId: string) {
 
   const post = await prisma.post.findUnique({
     where: { id: postId },
-    select: { authorId: true }
+    select: { authorId: true },
   })
 
   if (!post || post.authorId !== currentUser.id) {
     throw new Error("Unauthorized to delete this post")
   }
 
-  // Delete post (cascade will delete likes, comments, and notifications)
   await prisma.post.delete({
     where: { id: postId },
   })
