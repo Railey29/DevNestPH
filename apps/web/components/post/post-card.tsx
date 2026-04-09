@@ -85,14 +85,14 @@ export function PostCard({ post, currentUserId }: PostCardProps) {
   const [mentionSearch, setMentionSearch] = useState("")
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(0)
-  const [mentionSuggestions, setMentionSuggestions] = useState
-  {
-    id: string
-    username: string | null
-    name: string | null
-    image: string | null
-  }
-  ;[] > []
+  const [mentionSuggestions, setMentionSuggestions] = useState<
+    {
+      id: string
+      username: string | null
+      name: string | null
+      image: string | null
+    }[]
+  >([])
 
   useEffect(() => {
     if (!mentionSearch || mentionSearch.length < 1) {
