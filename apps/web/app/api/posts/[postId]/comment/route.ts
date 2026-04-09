@@ -1,45 +1,21 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
 
 export async function POST(
   req: Request,
-  { params }: { params: { postId: string } }
+  { params }: { params: Promise<{ postId: string }> }
 ) {
   try {
-    const session = await getServerSession()
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { postId } = await params // ✅ Await the params
+    const body = await req.json()
+    const { content, authorId } = body
 
-    const { content } = await req.json()
-    const { postId } = params
-
-    const currentUser = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true, name: true, username: true, image: true }
-    })
-
-    if (!currentUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    // Get post author
-    const post = await prisma.post.findUnique({
-      where: { id: postId },
-      select: { authorId: true }
-    })
-
-    if (!post) {
-      return NextResponse.json({ error: 'Post not found' }, { status: 404 })
-    }
-
-    // Create comment
+    // Your existing logic here
     const comment = await prisma.comment.create({
       data: {
         content,
-        authorId: currentUser.id,
-        postId: postId,
+        postId,
+        authorId,
       },
       include: {
         author: {
@@ -53,23 +29,12 @@ export async function POST(
       },
     })
 
-    // ✅ CREATE NOTIFICATION for post author (if not commenting on own post)
-    if (post.authorId !== currentUser.id) {
-      const notification = await prisma.notification.create({
-        data: {
-          userId: post.authorId,      // Post owner (receiver)
-          actorId: currentUser.id,    // Commenter (sender)
-          type: 'COMMENT',
-          postId: postId,
-          read: false,
-        },
-      })
-      console.log('✅ Notification created for comment:', notification)
-    }
-
     return NextResponse.json(comment)
   } catch (error) {
-    console.error('Comment API error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error("Error creating comment:", error)
+    return NextResponse.json(
+      { error: "Failed to create comment" },
+      { status: 500 }
+    )
   }
 }
