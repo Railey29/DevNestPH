@@ -34,7 +34,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       notification,
-      message: `✅ Test notification created! ${users[1].name} followed ${users[0].name}`
+      message: `✅ Test notification created!`
     })
   } catch (error) {
     console.error('Error:', error)
