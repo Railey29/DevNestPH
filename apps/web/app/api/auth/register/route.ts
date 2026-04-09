@@ -1,8 +1,10 @@
+// app/api/auth/register/route.ts
 import { NextResponse, NextRequest } from "next/server"
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma" // ✅ Use shared instance
 import bcrypt from "bcryptjs"
 
-const prisma = new PrismaClient()
+// ❌ Remove this line
+// const prisma = new PrismaClient()
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,7 +57,6 @@ export async function POST(req: NextRequest) {
       { error: "Something went wrong during registration" },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
+  // ❌ Remove finally block with $disconnect - not needed with shared prisma
 }

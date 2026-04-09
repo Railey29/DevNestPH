@@ -1,26 +1,27 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+// app/api/posts/[postId]/like/route.ts
+import { NextResponse } from "next/server"
+import { getServerSession } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 
 export async function POST(
   req: Request,
-  { params }: { params: { postId: string } }
+  { params }: { params: Promise<{ postId: string }> } // ✅ Add Promise
 ) {
   try {
     const session = await getServerSession()
     if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { postId } = params
+    const { postId } = await params // ✅ Await params
 
     const currentUser = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: { id: true }
+      select: { id: true },
     })
 
     if (!currentUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     // Check if already liked
@@ -49,7 +50,7 @@ export async function POST(
         where: {
           actorId: currentUser.id,
           postId: postId,
-          type: 'LIKE_POST',
+          type: "LIKE_POST",
         },
       })
 
@@ -58,11 +59,11 @@ export async function POST(
       // Get post author
       const post = await prisma.post.findUnique({
         where: { id: postId },
-        select: { authorId: true }
+        select: { authorId: true },
       })
 
       if (!post) {
-        return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+        return NextResponse.json({ error: "Post not found" }, { status: 404 })
       }
 
       // Create like
@@ -79,26 +80,31 @@ export async function POST(
           data: {
             userId: post.authorId,
             actorId: currentUser.id,
-            type: 'LIKE_POST',
+            type: "LIKE_POST",
             postId: postId,
             read: false,
           },
         })
-        console.log(`✅ Notification created: ${currentUser.id} liked post by ${post.authorId}`)
+        console.log(
+          `✅ Notification created: ${currentUser.id} liked post by ${post.authorId}`
+        )
       }
 
       return NextResponse.json({ liked: true })
     }
   } catch (error) {
-    console.error('Like API error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error("Like API error:", error)
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    )
   }
 }
 
 // Get like status
 export async function GET(
   req: Request,
-  { params }: { params: { postId: string } }
+  { params }: { params: Promise<{ postId: string }> } // ✅ Add Promise
 ) {
   try {
     const session = await getServerSession()
@@ -106,11 +112,11 @@ export async function GET(
       return NextResponse.json({ liked: false, count: 0 })
     }
 
-    const { postId } = params
+    const { postId } = await params // ✅ Await params
 
     const currentUser = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: { id: true }
+      select: { id: true },
     })
 
     if (!currentUser) {
@@ -136,7 +142,7 @@ export async function GET(
       count: likeCount,
     })
   } catch (error) {
-    console.error('Like status error:', error)
+    console.error("Like status error:", error)
     return NextResponse.json({ liked: false, count: 0 })
   }
 }

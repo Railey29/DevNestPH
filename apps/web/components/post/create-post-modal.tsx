@@ -16,7 +16,12 @@ interface CreatePostModalProps {
 }
 
 function getInitials(name: string) {
-  return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase()
 }
 
 export function CreatePostModal({
@@ -88,10 +93,13 @@ export function CreatePostModal({
         imageUrl = res?.[0]?.url ?? null
       }
 
-      await createPost({ content: content.trim(), imageUrl, tags })
+      // ✅ FIXED: Call createPost with separate parameters, not an object
+      await createPost(content.trim(), imageUrl, tags)
+
       sileo.success({ title: "Post created!" })
       handleClose()
-    } catch {
+    } catch (error) {
+      console.error("Create post error:", error)
       sileo.error({ title: "Failed to create post. Try again." })
     } finally {
       setPosting(false)
@@ -104,8 +112,10 @@ export function CreatePostModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4"
-      onClick={(e) => e.target === e.currentTarget && !isLoading && handleClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
+      onClick={(e) =>
+        e.target === e.currentTarget && !isLoading && handleClose()
+      }
     >
       <div className="w-full max-w-lg rounded-xl border border-border/50 bg-card shadow-lg">
         {/* Header */}
@@ -124,15 +134,21 @@ export function CreatePostModal({
         <div className="px-5 py-4">
           {/* Author */}
           <div className="mb-3 flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground overflow-hidden">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-sm font-medium text-muted-foreground">
               {authorImage ? (
-                <img src={authorImage} alt={authorName} className="h-full w-full object-cover" />
+                <img
+                  src={authorImage}
+                  alt={authorName}
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 getInitials(authorName)
               )}
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">{authorName}</p>
+              <p className="text-sm font-medium text-foreground">
+                {authorName}
+              </p>
               <p className="text-xs text-muted-foreground">@{authorUsername}</p>
             </div>
           </div>
@@ -151,10 +167,17 @@ export function CreatePostModal({
           {/* Image preview */}
           {imagePreview && (
             <div className="relative mt-3 overflow-hidden rounded-lg border border-border/50">
-              <img src={imagePreview} alt="Preview" className="max-h-64 w-full object-cover" />
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="max-h-64 w-full object-cover"
+              />
               <button
-                onClick={() => { setImagePreview(null); setImageFile(null) }}
-                className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur-sm"
+                onClick={() => {
+                  setImagePreview(null)
+                  setImageFile(null)
+                }}
+                className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-foreground backdrop-blur-sm"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -170,7 +193,9 @@ export function CreatePostModal({
                 className="flex items-center gap-1 rounded-full bg-foreground/10 px-2 py-0.5 text-xs text-foreground"
               >
                 #{tag}
-                <button onClick={() => setTags((p) => p.filter((t) => t !== tag))}>
+                <button
+                  onClick={() => setTags((p) => p.filter((t) => t !== tag))}
+                >
                   <X className="h-2.5 w-2.5" />
                 </button>
               </span>
@@ -180,7 +205,9 @@ export function CreatePostModal({
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleTagKeyDown}
-                placeholder={tags.length === 0 ? "Add tags (press Enter)..." : ""}
+                placeholder={
+                  tags.length === 0 ? "Add tags (press Enter)..." : ""
+                }
                 className="min-w-[120px] flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
               />
             )}
@@ -208,11 +235,15 @@ export function CreatePostModal({
           </div>
 
           <div className="flex items-center gap-3">
-            <span className={cn(
-              "text-xs",
-              charCount > maxChars * 0.9 ? "text-amber-500" : "text-muted-foreground",
-              charCount >= maxChars && "text-red-500"
-            )}>
+            <span
+              className={cn(
+                "text-xs",
+                charCount > maxChars * 0.9
+                  ? "text-amber-500"
+                  : "text-muted-foreground",
+                charCount >= maxChars && "text-red-500"
+              )}
+            >
               {charCount}/{maxChars}
             </span>
             <button
