@@ -9,6 +9,7 @@ import {
   ChevronUp,
   Loader2,
   X,
+  AtSign,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toggleLike, createComment, deletePost } from "@/lib/actions/post"
@@ -75,6 +76,11 @@ export function PostCard({ post, currentUserId }: PostCardProps) {
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<{ id: string; author: string; username: string } | null>(null)
+  const [replyText, setReplyText] = useState("")
+  const [mentionSearch, setMentionSearch] = useState("")
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false)
+  const [cursorPosition, setCursorPosition] = useState(0)
 
   const handleLike = async () => {
     if (!currentUserId) return
@@ -88,22 +94,34 @@ export function PostCard({ post, currentUserId }: PostCardProps) {
     setSubmitting(true)
     try {
       await createComment(post.id, commentText.trim())
-      setComments((prev) => [
-        ...prev,
-        {
-          id: Math.random().toString(),
-          content: commentText.trim(),
-          createdAt: new Date(),
-          author: {
-            name: post.author.name,
-            username: post.author.username,
-            image: post.author.image,
-          },
-        },
-      ])
+      // Refetch comments to get the actual comment from DB
+      const res = await fetch(`/api/posts/${post.id}`)
+      const data = await res.json()
+      setComments(data.comments || [])
       setCommentText("")
+      sileo.success({ title: "Comment posted!" })
     } catch {
       sileo.error({ title: "Failed to post comment." })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleReply = async () => {
+    if (!replyText.trim() || !currentUserId || !replyingTo) return
+    setSubmitting(true)
+    try {
+      await createComment(post.id, replyText.trim(), replyingTo.id)
+      // Refetch comments
+      const res = await fetch(`/api/posts/${post.id}`)
+      const data = await res.json()
+      setComments(data.comments || [])
+      setReplyText("")
+      setReplyingTo(null)
+      setMentionSearch("")
+      sileo.success({ title: "Reply posted!" })
+    } catch {
+      sileo.error({ title: "Failed to post reply." })
     } finally {
       setSubmitting(false)
     }
@@ -120,6 +138,44 @@ export function PostCard({ post, currentUserId }: PostCardProps) {
       setDeleting(false)
     }
   }
+
+  const handleCommentInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setCommentText(value)
+
+    // Check for @mention
+    const cursorPos = e.target.selectionStart || 0
+    const textBeforeCursor = value.slice(0, cursorPos)
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+
+    if (lastAtIndex !== -1 && cursorPos - lastAtIndex > 1) {
+      const searchQuery = textBeforeCursor.slice(lastAtIndex + 1)
+      if (searchQuery.length > 0) {
+        setMentionSearch(searchQuery)
+        setShowMentionSuggestions(true)
+        setCursorPosition(cursorPos)
+      } else {
+        setShowMentionSuggestions(false)
+      }
+    } else {
+      setShowMentionSuggestions(false)
+    }
+  }
+
+  const insertMention = (username: string) => {
+    const beforeMention = commentText.slice(0, cursorPosition)
+    const lastAtIndex = beforeMention.lastIndexOf('@')
+    const newText = commentText.slice(0, lastAtIndex) + `@${username} ` + commentText.slice(cursorPosition)
+    setCommentText(newText)
+    setShowMentionSuggestions(false)
+    setMentionSearch("")
+  }
+
+  // Mock mention suggestions - in real app, fetch from API
+  const mentionSuggestions = [
+    { username: "rairaisooo", name: "rairaisooo" },
+    { username: "definitelynot.sha", name: "definitelynot.sha" },
+  ].filter(u => u.username.toLowerCase().includes(mentionSearch.toLowerCase()))
 
   return (
     <>
@@ -231,15 +287,48 @@ export function PostCard({ post, currentUserId }: PostCardProps) {
         {/* Comments section */}
         {showComments && (
           <div className="mt-3 border-t border-border/40 pt-3">
-            {currentUserId && (
-              <div className="mb-3 flex gap-2">
+            {/* Reply input (when replying to a comment) */}
+            {replyingTo && (
+              <div className="mb-3 ml-8 flex gap-2">
+                <input
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && !e.shiftKey && handleReply()
+                  }
+                  placeholder={`Reply to @${replyingTo.username}...`}
+                  className="flex-1 rounded-lg border border-border/50 bg-muted/40 px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-border"
+                />
+                <button
+                  onClick={handleReply}
+                  disabled={!replyText.trim() || submitting}
+                  className="rounded-lg bg-foreground px-3 py-1.5 text-xs text-background disabled:opacity-40"
+                >
+                  {submitting ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    "Reply"
+                  )}
+                </button>
+                <button
+                  onClick={() => setReplyingTo(null)}
+                  className="rounded-lg border border-border/50 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {/* Comment input */}
+            {currentUserId && !replyingTo && (
+              <div className="relative mb-3 flex gap-2">
                 <input
                   value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
+                  onChange={handleCommentInput}
                   onKeyDown={(e) =>
                     e.key === "Enter" && !e.shiftKey && handleComment()
                   }
-                  placeholder="Write a comment..."
+                  placeholder="Write a comment... (use @ to mention)"
                   className="flex-1 rounded-lg border border-border/50 bg-muted/40 px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-border"
                 />
                 <button
@@ -253,8 +342,26 @@ export function PostCard({ post, currentUserId }: PostCardProps) {
                     "Post"
                   )}
                 </button>
+
+                {/* Mention suggestions dropdown */}
+                {showMentionSuggestions && mentionSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 mt-1 w-64 rounded-lg border border-border/50 bg-background shadow-lg z-10">
+                    {mentionSuggestions.map((user) => (
+                      <button
+                        key={user.username}
+                        onClick={() => insertMention(user.username)}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-muted transition-colors"
+                      >
+                        <AtSign className="h-3 w-3 text-muted-foreground" />
+                        <span className="font-medium">{user.username}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
+
+            {/* Comments list */}
             <div className="flex flex-col gap-2.5">
               {comments.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
@@ -288,6 +395,19 @@ export function PostCard({ post, currentUserId }: PostCardProps) {
                       <p className="mt-0.5 text-xs text-foreground">
                         {comment.content}
                       </p>
+                      {/* Reply button for each comment */}
+                      {currentUserId && (
+                        <button
+                          onClick={() => setReplyingTo({
+                            id: comment.id,
+                            author: comment.author.name ?? comment.author.username ?? "User",
+                            username: comment.author.username ?? "user"
+                          })}
+                          className="mt-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Reply
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))

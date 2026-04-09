@@ -28,6 +28,8 @@ model User {
   comments      Comment[]
   followers     Follow[]  @relation("UserFollowers")
   following     Follow[]  @relation("UserFollowing")
+  receivedNotifications Notification[] @relation("UserNotifications")
+  sentNotifications    Notification[] @relation("UserActions")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -41,6 +43,7 @@ model Post {
   author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   likes     Like[]
   comments  Comment[]
+  notifications Notification[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
@@ -62,6 +65,7 @@ model Comment {
   postId    String
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  notification Notification? @relation("CommentNotification") // Added opposite relation
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -74,6 +78,36 @@ model Follow {
   following   User     @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   @@unique([followerId, followingId])
+}
+
+model Notification {
+  id        String         @id @default(cuid())
+  userId    String
+  actorId   String
+  type      NotificationType
+  postId    String?
+  commentId String?         @unique
+  read      Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  user   User   @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  actor  User   @relation("UserActions", fields: [actorId], references: [id], onDelete: Cascade)
+  post   Post?  @relation(fields: [postId], references: [id], onDelete: SetNull)
+  comment Comment? @relation("CommentNotification", fields: [commentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([userId, read])
+  @@index([createdAt])
+  @@index([type])
+}
+
+enum NotificationType {
+  FOLLOW
+  LIKE_POST
+  LIKE_COMMENT
+  COMMENT
+  REPLY
 }
 
 model Account {

@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react"
 import { useTheme } from "next-themes"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  Notification02Icon,
   ArrowDown01Icon,
   LayoutBottomIcon,
   Moon02Icon,
@@ -15,6 +14,7 @@ import {
 import Link from "next/link"
 import { useSignOut } from "@/hooks/use-signOut"
 import { SearchBar } from "@/components/search-bar"
+import { NotificationDropdown } from "@/components/notification-dropdown"
 
 export function Navbar() {
   const { data: session } = useSession()
@@ -91,15 +91,8 @@ export function Navbar() {
               />
             </button>
 
-            {/* Notifications */}
-            <button className="relative flex size-9 items-center justify-center rounded-full border transition-colors hover:bg-muted">
-              <HugeiconsIcon
-                icon={Notification02Icon}
-                strokeWidth={2}
-                className="size-4"
-              />
-              <span className="absolute top-1.5 right-1.5 size-2 rounded-full border-2 border-background bg-red-500" />
-            </button>
+            {/* Notifications Dropdown */}
+            <NotificationDropdown />
 
             {/* Theme Toggle */}
             {mounted && (
@@ -123,7 +116,7 @@ export function Navbar() {
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="flex items-center gap-1.5 rounded-full border px-2 py-1 transition-colors hover:bg-muted"
-                suppressHydrationWarning // ✅ ADDED
+                suppressHydrationWarning
               >
                 {session?.user?.image ? (
                   <img

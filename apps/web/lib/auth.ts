@@ -29,7 +29,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user.password
         )
         if (!isValid) return null
-        return user
+
+        // Return user with all necessary fields
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          username: user.username,
+          image: user.image,
+        }
       },
     }),
   ],
@@ -37,7 +45,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/auth/login",
   },
   callbacks: {
-    // ✅ ADDED: authorized callback para sa route protection
     async authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
       const isProtectedRoute = ["/feed", "/profile", "/settings"].some((path) =>
@@ -45,45 +52,76 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       )
 
       if (isProtectedRoute && !isLoggedIn) {
-        return false // redirect to /auth/login
+        return false
       }
-
       return true
     },
 
     async jwt({ token, user, account, profile, trigger, session }) {
-      // Initial sign in
+      // Initial sign in - get complete user data from database
       if (user) {
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email! },
-          select: { id: true, name: true, username: true, image: true },
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            image: true,
+            email: true
+          },
         })
-        token.id = dbUser?.id
-        token.name = dbUser?.name ?? dbUser?.username ?? "User"
-        token.picture = dbUser?.image ?? null
-        token.username = dbUser?.username ?? null
+
+        if (dbUser) {
+          token.id = dbUser.id
+          token.name = dbUser.name ?? dbUser.username ?? "User"
+          token.username = dbUser.username
+          token.email = dbUser.email
+          token.picture = dbUser.image ?? null
+        }
       }
+
       // GitHub sign in
       if (account?.provider === "github" && profile) {
         token.name = (profile.name ?? profile.login) as string
         token.picture = profile.avatar_url as string
+
+        // Update database with GitHub data
+        if (token.email) {
+          await prisma.user.update({
+            where: { email: token.email as string },
+            data: {
+              name: token.name as string,
+              image: token.picture as string,
+              username: (profile.login as string) ?? token.username as string,
+            }
+          })
+        }
       }
-      // Session update — triggered by update() call sa client
-      if (trigger === "update" && session?.image) {
-        token.picture = session.image
+
+      // Session update
+      if (trigger === "update" && session) {
+        if (session.name) token.name = session.name
+        if (session.image) token.picture = session.image
+        if (session.username) token.username = session.username
       }
+
       return token
     },
 
     async session({ session, token }) {
       if (session.user) {
-        ;(session.user as any).id = token.id as string
-        ;(session.user as any).username = token.username as string
+        session.user.id = token.id as string
         session.user.name = token.name as string
         session.user.email = token.email as string
         session.user.image = token.picture as string
+        ;(session.user as any).username = token.username as string
       }
       return session
     },
   },
 })
+
+// Export getServerSession
+export async function getServerSession() {
+  return await auth()
+}
